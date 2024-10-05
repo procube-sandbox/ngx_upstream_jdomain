@@ -367,11 +367,11 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 				/* Peer state is preserved, clear flag for this process */
 				peerp[i]->down &= ~NGX_JDOMAIN_PRESERVE_PEER_STATE;
 				ngx_log_debug(NGX_LOG_DEBUG_HTTP,
-				               ctx->resolver->log,
-				               0,
-				               "ngx_http_upstream_jdomain_module: preserve peer state: addr=%V, down=%i",
-				               &addr[i].name,
-				               peerp[i]->down);	
+				              ctx->resolver->log,
+				              0,
+				              "ngx_http_upstream_jdomain_module: preserve peer state: addr=%V, down=%i",
+				              &addr[i].name,
+				              peerp[i]->down);	
 			} else {
 				/* Initialize peer as newly added ip */
 				ngx_log_debug(
