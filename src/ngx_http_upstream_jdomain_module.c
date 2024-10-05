@@ -365,7 +365,8 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		if (i < instance->state.data.naddrs) {
 			if (peerp[i]->down & NGX_JDOMAIN_PRESERVE_PEER_STATE) {
 				/* Peer state is preserved, clear flag for this process */
-				peerp[i]->down &= ~NGX_JDOMAIN_PRESERVE_PEER_STATE;
+				/* peerp[i]->down &= ~NGX_JDOMAIN_PRESERVE_PEER_STATE; */
+				peerp[i]->down = 0;
 				ngx_log_debug(NGX_LOG_DEBUG_HTTP,
 					      ctx->resolver->log,
 					      0,
