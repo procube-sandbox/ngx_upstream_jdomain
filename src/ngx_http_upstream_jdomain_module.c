@@ -334,7 +334,7 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		for (g = 0; g < ngx_min(naddrs_prev, instance->conf.max_ips); g++) {
 			/* all peer must has save server name as this domain, so we don't check server name here. */
 			if (peerp[g]->socklen == addr[f].socklen &&
-				peerp[g]->name.len == addr[f].name.len && ngx_strncmp(peerp[g]->name.data, addr[f].name.data, addr[f].name.len) == 0) {
+			    peerp[g]->name.len == addr[f].name.len && ngx_strncmp(peerp[g]->name.data, addr[f].name.data, addr[f].name.len) == 0) {
 				/* Swap the peer pointers to keep the order of the peers consistent */
 				if (f != g) {
 					ngx_http_upstream_rr_peer_t *tmp_peerp = peerp[f];
@@ -343,10 +343,10 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 				}
 				if (peerp[f]->down & NGX_JDOMAIN_PRESERVE_PEER_STATE) {
 					ngx_log_error(NGX_LOG_WARN,
-								  ctx->resolver->log,
-								  0,
-		            			  "ngx_http_upstream_jdomain_module: resolver duplicate peer address from resolver: addr=%V",
-								  &addr[f].name);
+						      ctx->resolver->log,
+						      0,
+						      "ngx_http_upstream_jdomain_module: resolver duplicate peer address from resolver: addr=%V",
+						      &addr[f].name);
 				} else {
 					peerp[f]->down |= NGX_JDOMAIN_PRESERVE_PEER_STATE;
 				}
@@ -367,25 +367,26 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 				/* Peer state is preserved, clear flag for this process */
 				peerp[i]->down &= ~NGX_JDOMAIN_PRESERVE_PEER_STATE;
 				ngx_log_debug(NGX_LOG_DEBUG_HTTP,
-							  ctx->resolver->log,
-							  0,
-							  "ngx_http_upstream_jdomain_module: preserve peer state: addr=%V, down=%i",
-							  &addr[i].name,
-							  peerp[i]->down);	
+					      ctx->resolver->log,
+					      0,
+					      "ngx_http_upstream_jdomain_module: preserve peer state: addr=%V, down=%i",
+					      &addr[i].name,
+					      peerp[i]->down);	
 			} else {
 				/* Initialize peer as newly added ip */
 				ngx_log_debug(NGX_LOG_DEBUG_HTTP,
-							  ctx->resolver->log,
-							  0,
-							  "ngx_http_upstream_jdomain_module: new addr(%V) is added",
-							  &addr[i].name);	
+					      ctx->resolver->log,
+					      0,
+					      "ngx_http_upstream_jdomain_module: new addr(%V) is added",
+					      &addr[i].name);	
 				peerp[i]->socklen = addr[i].socklen;
 				peerp[i]->name.data = addr[i].name.data;
 				peerp[i]->name.len = addr[i].name.len;
 				peerp[i]->down = 0;
 			}
 		} else {
-			/* Copy the sockaddr and name of the invalid address (0.0.0.0:0) into the remaining buffers, marking associated peers down */
+			/* Copy the sockaddr and name of the invalid address (0.0.0.0:0) into the remaining buffers, marking associated peers down
+			 */
 			addr[i].name.data = &name[i * NGX_SOCKADDR_STRLEN];
 			addr[i].name.len = peerp[i]->name.len = NGX_JDOMAIN_INVALID_ADDR.name.len;
 			ngx_memcpy(addr[i].name.data, NGX_JDOMAIN_INVALID_ADDR.name.data, addr[i].name.len);
