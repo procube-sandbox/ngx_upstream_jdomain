@@ -371,11 +371,11 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 				              0,
 				              "ngx_http_upstream_jdomain_module: preserve peer state: addr=%V, down=%i",
 				              &addr[i].name,
-				              peerp[i]->down);	
+				              peerp[i]->down);
 			} else {
 				/* Initialize peer as newly added ip */
 				ngx_log_debug(
-				  NGX_LOG_DEBUG_HTTP, ctx->resolver->log, 0, "ngx_http_upstream_jdomain_module: new addr(%V) is added", &addr[i].name);	
+				  NGX_LOG_DEBUG_HTTP, ctx->resolver->log, 0, "ngx_http_upstream_jdomain_module: new addr(%V) is added", &addr[i].name);
 				peerp[i]->socklen = addr[i].socklen;
 				peerp[i]->name.data = addr[i].name.data;
 				peerp[i]->name.len = addr[i].name.len;
