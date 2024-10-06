@@ -333,6 +333,15 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		/* Check if the resolved address is already in the list of peers */
 		for (g = 0; g < ngx_min(naddrs_prev, instance->conf.max_ips); g++) {
 			/* all peer must has save server name as this domain, so we don't check server name here. */
+			ngx_log_debug(NGX_LOG_DEBUG_HTTP,
+				      ctx->resolver->log,
+				      0,
+				      "ngx_http_upstream_jdomain_module: compare: No.%i addr=%V, with peer No.%i addr=%V, down=%i",
+				      f,
+				      &addr[i].name,
+				      g,
+				      &peerp[g]->name,
+				      peerp[g]->down);
 			if (peerp[g]->socklen == addr[f].socklen && peerp[g]->name.len == addr[f].name.len &&
 			    ngx_strncmp(peerp[g]->name.data, addr[f].name.data, addr[f].name.len) == 0) {
 				/* Swap the peer pointers to keep the order of the peers consistent */
