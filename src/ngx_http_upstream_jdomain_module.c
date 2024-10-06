@@ -361,7 +361,7 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 	}
 	instance->state.data.server->naddrs = f;
 	instance->state.data.naddrs = instance->state.data.server->naddrs;
-	for (i = 0; i < ngx_min(naddrs_prev, instance->conf.max_ips); i++) {
+	for (i = 0; i < instance->conf.max_ips; i++) {
 		if (i < instance->state.data.naddrs) {
 			if (peerp[i]->down & NGX_JDOMAIN_PRESERVE_PEER_STATE) {
 				/* Peer state is preserved, clear flag for this process */
@@ -381,9 +381,11 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 				peerp[i]->name.len = addr[i].name.len;
 				peerp[i]->down = 0;
 			}
-		} else {
+		} else if (i < naddrs_prev) {
 			/* Copy the sockaddr and name of the invalid address (0.0.0.0:0) into the remaining buffers, marking associated peers down
 			 */
+			ngx_log_debug(
+				NGX_LOG_DEBUG_HTTP, ctx->resolver->log, 0, "ngx_http_upstream_jdomain_module: invalidate addr (%V)", &addr[i].name);
 			addr[i].name.data = &name[i * NGX_SOCKADDR_STRLEN];
 			addr[i].name.len = peerp[i]->name.len = NGX_JDOMAIN_INVALID_ADDR.name.len;
 			ngx_memcpy(addr[i].name.data, NGX_JDOMAIN_INVALID_ADDR.name.data, addr[i].name.len);
