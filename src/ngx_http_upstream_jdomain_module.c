@@ -385,7 +385,7 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 			/* Copy the sockaddr and name of the invalid address (0.0.0.0:0) into the remaining buffers, marking associated peers down
 			 */
 			ngx_log_debug(
-				NGX_LOG_DEBUG_HTTP, ctx->resolver->log, 0, "ngx_http_upstream_jdomain_module: invalidate addr (%V)", &addr[i].name);
+			  NGX_LOG_DEBUG_HTTP, ctx->resolver->log, 0, "ngx_http_upstream_jdomain_module: invalidate addr (%V)", &addr[i].name);
 			addr[i].name.data = &name[i * NGX_SOCKADDR_STRLEN];
 			addr[i].name.len = peerp[i]->name.len = NGX_JDOMAIN_INVALID_ADDR.name.len;
 			ngx_memcpy(addr[i].name.data, NGX_JDOMAIN_INVALID_ADDR.name.data, addr[i].name.len);
