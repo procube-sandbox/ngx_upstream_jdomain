@@ -26,6 +26,10 @@
 #define NGX_JDOMAIN_ARG_STR_MAX_CONNS "max_conns="
 #define NGX_JDOMAIN_ARG_STR_STRICT "strict"
 
+#define NGX_JDOMAIN_PEER_ASSIGNED 0
+#define NGX_JDOMAIN_PEER_FREE 1
+#define NGX_JDOMAIN_PEER_CONNECTED 2
+
 typedef struct
 {
 	struct
@@ -177,7 +181,7 @@ ngx_http_upstream_init_jdomain(ngx_conf_t *cf, ngx_http_upstream_srv_conf_t *us)
 
 		/* In the case we resolve less IPs than max_ips, we set the remaining peers to down state */
 		for (j = instance[i].state.data.naddrs; j < instance[i].conf.max_ips; j++) {
-			peerp[j]->down = 1;
+			peerp[j]->down = NGX_JDOMAIN_PEER_FREE;
 		}
 
 		/* Now we can undo our hack from the module entry point and store the correct number of addresses */
@@ -274,7 +278,7 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 	ngx_uint_t i;
 	ngx_uint_t f;
 	ngx_uint_t exists_alt_server;
-	ngx_uint_t naddrs_prev;
+	ngx_uint_t naddrs;
 	ngx_http_upstream_server_t *server;
 	ngx_sockaddr_t *sockaddr;
 	u_char *name;
@@ -312,15 +316,90 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 	name = instance->state.data.names->elts;
 	peerp = instance->state.data.peerps->elts;
 	sockaddr = instance->state.data.sockaddrs->elts;
-	naddrs_prev = instance->state.data.server->naddrs;
-	instance->state.data.server->naddrs = 0;
-	/* Copy the resolved sockaddrs and address names (IP:PORT) into our state data buffers, marking associated peers up */
-	f = 0;
+	naddrs = instance->state.data.server->naddrs;
+
+	ngx_log_debug2(NGX_LOG_DEBUG_HTTP,
+	               ctx->resolver->log,
+	               0,
+	               "ngx_http_upstream_jdomain_module: process resolved addresses resolved addrs=%i, current naddrs=%i",
+	               ctx->naddrs,
+	               naddrs);
+	/* collect removed ips */
+	for (f = 0; f < instance->conf.max_ips; f++) {
+		if (peerp[f]->down == NGX_JDOMAIN_PEER_FREE) {
+			continue;
+		}
+		for (i = 0; i < ctx->naddrs; i++) {
+			if (instance->conf.addr_family != NGX_JDOMAIN_FAMILY_DEFAULT &&
+			    instance->conf.addr_family != ctx->addrs[i].sockaddr->sa_family) {
+				continue;
+			}
+			if (ngx_cmp_sockaddr(ctx->addrs[i].sockaddr, ctx->addrs[i].socklen, addr[f].sockaddr, addr[f].socklen, 0) == NGX_OK) {
+				break;
+			}
+		}
+		if (i != ctx->naddrs) {
+			continue;
+		}
+		/* ip is removed from DNS */
+		if (peerp[f]->conns == 0) {
+			ngx_log_debug2(NGX_LOG_DEBUG_HTTP,
+			               ctx->resolver->log,
+			               0,
+			               "ngx_http_upstream_jdomain_module: removed peer %i for %V is collected",
+			               f,
+			               &peerp[f]->name);
+			peerp[f]->down = NGX_JDOMAIN_PEER_FREE;
+			naddrs--;
+		} else {
+			ngx_log_debug3(NGX_LOG_DEBUG_HTTP,
+			               ctx->resolver->log,
+			               0,
+			               "ngx_http_upstream_jdomain_module: peer %i for %V has %i connections, so it is not collected.",
+			               f,
+			               &peerp[f]->name,
+			               peerp[f]->conns);
+			/* ngx_http_upstream_free_round_robin_peer may access this peer, so preserve it */
+			peerp[f]->down = NGX_JDOMAIN_PEER_CONNECTED;
+		}
+	}
+	/* assign peer */
 	for (i = 0; i < ctx->naddrs; i++) {
 		if (instance->conf.addr_family != NGX_JDOMAIN_FAMILY_DEFAULT &&
 		    instance->conf.addr_family != ctx->addrs[i].sockaddr->sa_family) {
 			continue;
 		}
+		/* search peer for resoleved addrs */
+		for (f = 0; f < instance->conf.max_ips; f++) {
+			if (peerp[f]->down != NGX_JDOMAIN_PEER_FREE &&
+			    ngx_cmp_sockaddr(ctx->addrs[i].sockaddr, ctx->addrs[i].socklen, addr[f].sockaddr, addr[f].socklen, 0) == NGX_OK) {
+				if (peerp[f]->down == NGX_JDOMAIN_PEER_CONNECTED) {
+					/* While waiting for peer to be retrieved, it was re-registered in DNS, so it will be revived. */
+					peerp[f]->down = NGX_JDOMAIN_PEER_ASSIGNED;
+				}
+				break;
+			}
+		}
+		if (f != instance->conf.max_ips) {
+			/* found peer, already assigned */
+			break;
+		}
+		/* search free peer */
+		for (f = 0; f < instance->conf.max_ips; f++) {
+			if (peerp[f]->down == NGX_JDOMAIN_PEER_FREE) {
+				break;
+			}
+		}
+		if (f == instance->conf.max_ips) {
+			/* no free peer */
+			ngx_log_error(NGX_LOG_WARN,
+			              ctx->resolver->log,
+			              0,
+			              "ngx_http_upstream_jdomain_module: no free peer for resolved %i addrs",
+			              ctx->naddrs);
+			break;
+		}
+		/* assign new peer */
 		addr[f].sockaddr = &sockaddr[f].sockaddr;
 		addr[f].socklen = peerp[f]->socklen = ctx->addrs[i].socklen;
 		ngx_memcpy(addr[f].sockaddr, ctx->addrs[i].sockaddr, addr[f].socklen);
@@ -328,25 +407,24 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		addr[f].name.data = peerp[f]->name.data = &name[f * NGX_SOCKADDR_STRLEN];
 		addr[f].name.len = peerp[f]->name.len =
 		  ngx_sock_ntop(addr[f].sockaddr, addr[f].socklen, addr[f].name.data, NGX_SOCKADDR_STRLEN, 1);
-		peerp[f]->down = 0;
+		peerp[f]->down = NGX_JDOMAIN_PEER_ASSIGNED;
+		peerp[f]->accessed = 0;
+		peerp[f]->checked = 0;
+		peerp[f]->conns = 0;
+		peerp[f]->fails = 0;
+		naddrs++;
+		ngx_log_debug2(NGX_LOG_DEBUG_HTTP,
+		               ctx->resolver->log,
+		               0,
+		               "ngx_http_upstream_jdomain_module: assine new peer %i to %V",
+		               f,
+		               &addr[f].name);
 		instance->state.data.server->down = 0;
-		f++;
-		if (instance->conf.max_ips == f) {
-			break;
-		}
 	}
-	instance->state.data.server->naddrs = f;
+
+	/* Update the number of addresses in the server structure */
+	instance->state.data.server->naddrs = naddrs;
 	instance->state.data.naddrs = instance->state.data.server->naddrs;
-	/* Copy the sockaddr and name of the invalid address (0.0.0.0:0) into the remaining buffers, marking associated peers down */
-	for (i = instance->state.data.naddrs; i < ngx_min(naddrs_prev, instance->conf.max_ips); i++) {
-		addr[i].name.data = &name[i * NGX_SOCKADDR_STRLEN];
-		addr[i].name.len = peerp[i]->name.len = NGX_JDOMAIN_INVALID_ADDR.name.len;
-		ngx_memcpy(addr[i].name.data, NGX_JDOMAIN_INVALID_ADDR.name.data, addr[i].name.len);
-		addr[i].sockaddr = &sockaddr[i].sockaddr;
-		addr[i].socklen = peerp[i]->socklen = NGX_JDOMAIN_INVALID_ADDR.socklen;
-		ngx_memcpy(addr[i].sockaddr, NGX_JDOMAIN_INVALID_ADDR.sockaddr, addr[i].socklen);
-		peerp[i]->down = 1;
-	}
 
 end:
 	/* Release the resolver context and mark the completion in the instance state */
