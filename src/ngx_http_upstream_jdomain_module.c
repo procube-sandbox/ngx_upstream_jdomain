@@ -142,7 +142,7 @@ ngx_http_upstream_init_jdomain(ngx_conf_t *cf, ngx_http_upstream_srv_conf_t *us)
 	ngx_uint_t i;
 	ngx_uint_t j;
 
-	ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0, "ngx_http_upstream_jdomain_module: init jdomain");
+	ngx_conf_log_error(NGX_LOG_WARN, cf, 0, "ngx_http_upstream_jdomain_module: init jdomain");
 
 	jcf = ngx_http_conf_upstream_srv_conf(us, ngx_http_upstream_jdomain_module);
 
@@ -353,6 +353,12 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 			               "ngx_http_upstream_jdomain_module: removed peer %i for %V is collected",
 			               f,
 			               &peerp[f]->name);
+			addr[f].name.data = &name[i * NGX_SOCKADDR_STRLEN];
+			addr[f].name.len = NGX_JDOMAIN_INVALID_ADDR.name.len;
+			ngx_memcpy(addr[f].name.data, NGX_JDOMAIN_INVALID_ADDR.name.data, addr[f].name.len);
+			addr[f].sockaddr = &sockaddr[f].sockaddr;
+			addr[f].socklen = NGX_JDOMAIN_INVALID_ADDR.socklen;
+			ngx_memcpy(addr[f].sockaddr, NGX_JDOMAIN_INVALID_ADDR.sockaddr, addr[f].socklen);
 			peerp[f]->down = NGX_JDOMAIN_PEER_FREE;
 			naddrs--;
 		} else {
@@ -582,6 +588,7 @@ ngx_http_upstream_jdomain(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 	ngx_uint_t f;
 	char *rc;
 
+	ngx_conf_log_error(NGX_LOG_WARN, cf, 0, "ngx_http_upstream_jdomain_module: jdomain");
 	NGX_JDOMAIN_INVALID_ADDR_SOCKADDR_IN.sin_addr.s_addr = htonl(INADDR_ANY);
 	NGX_JDOMAIN_INVALID_ADDR_SOCKADDR_IN.sin_family = AF_INET;
 	NGX_JDOMAIN_INVALID_ADDR_SOCKADDR_IN.sin_port = htons(0);
