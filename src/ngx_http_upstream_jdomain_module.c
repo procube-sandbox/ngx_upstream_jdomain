@@ -377,17 +377,16 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		for (f = 0; f < instance->conf.max_ips; f++) {
 			if (peerp[f]->down != NGX_JDOMAIN_PEER_FREE &&
 			    ngx_cmp_sockaddr(ctx->addrs[i].sockaddr, ctx->addrs[i].socklen, addr[f].sockaddr, addr[f].socklen, 0) == NGX_OK) {
-				ngx_log_debug6(
-				  NGX_LOG_DEBUG_HTTP,
-				  ctx->resolver->log,
-				  0,
-				  "ngx_http_upstream_jdomain_module: already assigned %i to %V, down=%i, fails=%ui, cons=%ui, checked=%l",
-				  f,
-				  &addr[f].name,
-				  peerp[f]->down,
-				  peerp[f]->fails,
-				  peerp[f]->conns,
-				  peerp[f]->checked);
+				ngx_log_debug6(NGX_LOG_DEBUG_HTTP,
+				               ctx->resolver->log,
+				               0,
+				               "ngx_http_upstream_jdomain_module: already assigned %i to %V, down=%i, fails=%ui, cons=%ui, checked=%l",
+				               f,
+				               &addr[f].name,
+				               peerp[f]->down,
+				               peerp[f]->fails,
+				               peerp[f]->conns,
+				               peerp[f]->checked);
 
 				if (peerp[f]->down == NGX_JDOMAIN_PEER_CONNECTED) {
 					/* While waiting for peer to be retrieved, it was re-registered in DNS, so it will be revived. */
