@@ -6,7 +6,7 @@
 #define NGX_JDOMAIN_STATUS_DONE 0
 #define NGX_JDOMAIN_STATUS_WAIT 1
 
-#define NGX_JDOMAIN_DEFAULT_SERVER_FAIL_TIMEOUT 10
+#define NGX_JDOMAIN_DEFAULT_SERVER_FAIL_TIMEOUT 30
 #define NGX_JDOMAIN_DEFAULT_SERVER_MAX_FAILS 1
 #define NGX_JDOMAIN_DEFAULT_SERVER_WEIGHT 1
 #define NGX_JDOMAIN_DEFAULT_PORT 80
@@ -274,6 +274,7 @@ end:
 static void
 ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 {
+	time_t now;
 	ngx_http_upstream_jdomain_instance_t *instance;
 	ngx_uint_t i;
 	ngx_uint_t f;
@@ -284,6 +285,8 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 	u_char *name;
 	ngx_addr_t *addr;
 	ngx_http_upstream_rr_peer_t **peerp;
+
+	now = ngx_time();
 
 	instance = (ngx_http_upstream_jdomain_instance_t *)ctx->data;
 
@@ -318,10 +321,11 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 	sockaddr = instance->state.data.sockaddrs->elts;
 	naddrs = instance->state.data.server->naddrs;
 
-	ngx_log_debug2(NGX_LOG_DEBUG_HTTP,
+	ngx_log_debug3(NGX_LOG_DEBUG_HTTP,
 	               ctx->resolver->log,
 	               0,
-	               "ngx_http_upstream_jdomain_module: process resolved addresses resolved addrs=%i, current naddrs=%i",
+	               "ngx_http_upstream_jdomain_module: process resolved addresses resolved now=%l addrs=%i, current naddrs=%i",
+	               now,
 	               ctx->naddrs,
 	               naddrs);
 	/* collect removed ips */
@@ -373,6 +377,18 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		for (f = 0; f < instance->conf.max_ips; f++) {
 			if (peerp[f]->down != NGX_JDOMAIN_PEER_FREE &&
 			    ngx_cmp_sockaddr(ctx->addrs[i].sockaddr, ctx->addrs[i].socklen, addr[f].sockaddr, addr[f].socklen, 0) == NGX_OK) {
+				ngx_log_debug6(
+				  NGX_LOG_DEBUG_HTTP,
+				  ctx->resolver->log,
+				  0,
+				  "ngx_http_upstream_jdomain_module: already assigned %i to %V, down=%i, fail_timeout=%l, cons=%i, checked=%l",
+				  f,
+				  &addr[f].name,
+				  peerp[f]->down,
+				  peerp[f]->fail_timeout,
+				  peerp[f]->conns,
+				  peerp[f]->checked);
+
 				if (peerp[f]->down == NGX_JDOMAIN_PEER_CONNECTED) {
 					/* While waiting for peer to be retrieved, it was re-registered in DNS, so it will be revived. */
 					peerp[f]->down = NGX_JDOMAIN_PEER_ASSIGNED;
@@ -408,8 +424,8 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		addr[f].name.len = peerp[f]->name.len =
 		  ngx_sock_ntop(addr[f].sockaddr, addr[f].socklen, addr[f].name.data, NGX_SOCKADDR_STRLEN, 1);
 		peerp[f]->down = NGX_JDOMAIN_PEER_ASSIGNED;
-		peerp[f]->accessed = 0;
-		peerp[f]->checked = 0;
+		peerp[f]->accessed = now;
+		peerp[f]->checked = now;
 		peerp[f]->conns = 0;
 		peerp[f]->fails = 0;
 		naddrs++;
