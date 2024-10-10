@@ -381,11 +381,11 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 				  NGX_LOG_DEBUG_HTTP,
 				  ctx->resolver->log,
 				  0,
-				  "ngx_http_upstream_jdomain_module: already assigned %i to %V, down=%i, fail_timeout=%l, cons=%i, checked=%l",
+				  "ngx_http_upstream_jdomain_module: already assigned %i to %V, down=%i, fails=%ui, cons=%ui, checked=%l",
 				  f,
 				  &addr[f].name,
 				  peerp[f]->down,
-				  peerp[f]->fail_timeout,
+				  peerp[f]->fails,
 				  peerp[f]->conns,
 				  peerp[f]->checked);
 
@@ -398,7 +398,7 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		}
 		if (f != instance->conf.max_ips) {
 			/* found peer, already assigned */
-			break;
+			continue;
 		}
 		/* search free peer */
 		for (f = 0; f < instance->conf.max_ips; f++) {
@@ -432,7 +432,7 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		ngx_log_debug2(NGX_LOG_DEBUG_HTTP,
 		               ctx->resolver->log,
 		               0,
-		               "ngx_http_upstream_jdomain_module: assine new peer %i to %V",
+		               "ngx_http_upstream_jdomain_module: assign new peer %i to %V",
 		               f,
 		               &addr[f].name);
 		instance->state.data.server->down = 0;
