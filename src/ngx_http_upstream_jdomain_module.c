@@ -142,7 +142,7 @@ ngx_http_upstream_init_jdomain(ngx_conf_t *cf, ngx_http_upstream_srv_conf_t *us)
 	ngx_uint_t i;
 	ngx_uint_t j;
 
-	ngx_conf_log_error(NGX_LOG_WARN, cf, 0, "ngx_http_upstream_jdomain_module: init jdomain");
+	ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0, "ngx_http_upstream_jdomain_module: init jdomain");
 
 	jcf = ngx_http_conf_upstream_srv_conf(us, ngx_http_upstream_jdomain_module);
 
@@ -165,7 +165,6 @@ ngx_http_upstream_init_jdomain(ngx_conf_t *cf, ngx_http_upstream_srv_conf_t *us)
 		for (peer = peers->peer; peer; peer = peer->next) {
 			if (instance[i].state.data.server->name.len == peer->server.len &&
 			    ngx_strncmp(instance[i].state.data.server->name.data, peer->server.data, peer->server.len) == 0) {
-				ngx_conf_log_error(NGX_LOG_WARN, cf, 0, "ngx_http_upstream_jdomain_module: assign peerp[%V][%i] to %V", &instance[i].state.data.server->name, j, &peer->name);
 				peerp[j++] = peer;
 			}
 		}
@@ -348,11 +347,12 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		}
 		/* ip is removed from DNS */
 		if (peerp[f]->conns == 0) {
-			ngx_log_debug2(NGX_LOG_DEBUG_HTTP,
+			ngx_log_debug3(NGX_LOG_DEBUG_HTTP,
 			               ctx->resolver->log,
 			               0,
-			               "ngx_http_upstream_jdomain_module: removed peer %i for %V is collected",
+			               "ngx_http_upstream_jdomain_module: removed peer %i(%p) for %V is collected",
 			               f,
+				       peerp[f],
 			               &peerp[f]->name);
 			addr[f].name.data = peerp[f]->name.data = &name[f * NGX_SOCKADDR_STRLEN];
 			addr[f].name.len = peerp[f]->name.len = NGX_JDOMAIN_INVALID_ADDR.name.len;
@@ -363,11 +363,12 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 			peerp[f]->down = NGX_JDOMAIN_PEER_FREE;
 			naddrs--;
 		} else {
-			ngx_log_debug3(NGX_LOG_DEBUG_HTTP,
+			ngx_log_debug4(NGX_LOG_DEBUG_HTTP,
 			               ctx->resolver->log,
 			               0,
-			               "ngx_http_upstream_jdomain_module: peer %i for %V has %i connections, so it is not collected.",
+			               "ngx_http_upstream_jdomain_module: peer %i(%p) for %V has %i connections, so it is not collected.",
 			               f,
+				       peerp[f],
 			               &peerp[f]->name,
 			               peerp[f]->conns);
 			/* ngx_http_upstream_free_round_robin_peer may access this peer, so preserve it */
@@ -387,9 +388,9 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 				ngx_log_debug7(NGX_LOG_DEBUG_HTTP,
 				               ctx->resolver->log,
 				               0,
-				               "ngx_http_upstream_jdomain_module: already assigned %i to %V:%V0, down=%i, fails=%ui, cons=%ui, checked=%l",
+				               "ngx_http_upstream_jdomain_module: already assigned %i(%p) to %V, down=%i, fails=%ui, cons=%ui, checked=%l",
 				               f,
-				               &addr[f].name,
+					       peerp[f],
 					       &peerp[f]->name,
 				               peerp[f]->down,
 				               peerp[f]->fails,
@@ -436,11 +437,12 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		peerp[f]->conns = 0;
 		peerp[f]->fails = 0;
 		naddrs++;
-		ngx_log_debug2(NGX_LOG_DEBUG_HTTP,
+		ngx_log_debug3(NGX_LOG_DEBUG_HTTP,
 		               ctx->resolver->log,
 		               0,
-		               "ngx_http_upstream_jdomain_module: assign new peer %i to %V",
+		               "ngx_http_upstream_jdomain_module: assign new peer %i(%p) to %V",
 		               f,
+			       peerp[f],
 		               &addr[f].name);
 		instance->state.data.server->down = 0;
 	}
@@ -590,7 +592,6 @@ ngx_http_upstream_jdomain(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 	ngx_uint_t f;
 	char *rc;
 
-	ngx_conf_log_error(NGX_LOG_WARN, cf, 0, "ngx_http_upstream_jdomain_module: jdomain");
 	NGX_JDOMAIN_INVALID_ADDR_SOCKADDR_IN.sin_addr.s_addr = htonl(INADDR_ANY);
 	NGX_JDOMAIN_INVALID_ADDR_SOCKADDR_IN.sin_family = AF_INET;
 	NGX_JDOMAIN_INVALID_ADDR_SOCKADDR_IN.sin_port = htons(0);
