@@ -165,6 +165,7 @@ ngx_http_upstream_init_jdomain(ngx_conf_t *cf, ngx_http_upstream_srv_conf_t *us)
 		for (peer = peers->peer; peer; peer = peer->next) {
 			if (instance[i].state.data.server->name.len == peer->server.len &&
 			    ngx_strncmp(instance[i].state.data.server->name.data, peer->server.data, peer->server.len) == 0) {
+				ngx_conf_log_error(NGX_LOG_WARN, cf, 0, "ngx_http_upstream_jdomain_module: assign peerp[%V][%i] to %V", &instance[i].state.data.server->name, j, &peer->name);
 				peerp[j++] = peer;
 			}
 		}
@@ -353,10 +354,10 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 			               "ngx_http_upstream_jdomain_module: removed peer %i for %V is collected",
 			               f,
 			               &peerp[f]->name);
-			addr[f].name.data = &name[i * NGX_SOCKADDR_STRLEN];
-			addr[f].name.len = NGX_JDOMAIN_INVALID_ADDR.name.len;
+			addr[f].name.data = peerp[f]->name.data = &name[f * NGX_SOCKADDR_STRLEN];
+			addr[f].name.len = peerp[f]->name.len = NGX_JDOMAIN_INVALID_ADDR.name.len;
 			ngx_memcpy(addr[f].name.data, NGX_JDOMAIN_INVALID_ADDR.name.data, addr[f].name.len);
-			addr[f].sockaddr = &sockaddr[f].sockaddr;
+			addr[f].sockaddr = peerp[f]->sockaddr = &sockaddr[f].sockaddr;
 			addr[f].socklen = NGX_JDOMAIN_INVALID_ADDR.socklen;
 			ngx_memcpy(addr[f].sockaddr, NGX_JDOMAIN_INVALID_ADDR.sockaddr, addr[f].socklen);
 			peerp[f]->down = NGX_JDOMAIN_PEER_FREE;
@@ -383,12 +384,13 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 		for (f = 0; f < instance->conf.max_ips; f++) {
 			if (peerp[f]->down != NGX_JDOMAIN_PEER_FREE &&
 			    ngx_cmp_sockaddr(ctx->addrs[i].sockaddr, ctx->addrs[i].socklen, addr[f].sockaddr, addr[f].socklen, 0) == NGX_OK) {
-				ngx_log_debug6(NGX_LOG_DEBUG_HTTP,
+				ngx_log_debug7(NGX_LOG_DEBUG_HTTP,
 				               ctx->resolver->log,
 				               0,
-				               "ngx_http_upstream_jdomain_module: already assigned %i to %V, down=%i, fails=%ui, cons=%ui, checked=%l",
+				               "ngx_http_upstream_jdomain_module: already assigned %i to %V:%V0, down=%i, fails=%ui, cons=%ui, checked=%l",
 				               f,
 				               &addr[f].name,
+					       &peerp[f]->name,
 				               peerp[f]->down,
 				               peerp[f]->fails,
 				               peerp[f]->conns,
@@ -421,7 +423,7 @@ ngx_http_upstream_jdomain_resolve_handler(ngx_resolver_ctx_t *ctx)
 			break;
 		}
 		/* assign new peer */
-		addr[f].sockaddr = &sockaddr[f].sockaddr;
+		addr[f].sockaddr = peerp[f]->sockaddr = &sockaddr[f].sockaddr;
 		addr[f].socklen = peerp[f]->socklen = ctx->addrs[i].socklen;
 		ngx_memcpy(addr[f].sockaddr, ctx->addrs[i].sockaddr, addr[f].socklen);
 		ngx_inet_set_port(addr[f].sockaddr, instance->conf.port);
